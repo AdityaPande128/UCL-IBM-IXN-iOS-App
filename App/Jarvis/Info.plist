@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>Jarvis</string>
+    <key>UILaunchScreen</key>
+    <dict/>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>NSCameraUsageDescription</key>
+    <string>The camera reads the pairing code shown on your Mac. Nothing is photographed or stored.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Jarvis connects directly to your own Mac on this network. Nothing talks to any other server.</string>
+    <!-- The daemon speaks ws/http on the LAN behind a bearer token, and on
+         the remote rung every byte is already AES-256-GCM under a key that
+         never travels. TLS here would add a self-signed-certificate ceremony
+         with no privacy gain for a personal, paired device. -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+</dict>
+</plist>
