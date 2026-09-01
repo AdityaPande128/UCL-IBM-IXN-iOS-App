@@ -114,7 +114,7 @@ public enum DirectCrypto {
         let bytes = Data(buf)  // rebase indices
         let nonce = bytes.subdata(in: 1..<13)
         let tsData = bytes.subdata(in: 13..<21)
-        let ts = tsData.withUnsafeBytes { $0.load(as: Int64.self).bigEndian }
+        let ts = tsData.withUnsafeBytes { $0.loadUnaligned(as: Int64.self).bigEndian }
         let wall = now ?? Int64(Date().timeIntervalSince1970 * 1000)
         guard abs(wall - ts) <= windowMs else { return nil }
         let marker = nonce.base64EncodedString()

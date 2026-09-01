@@ -43,7 +43,7 @@ public enum Frames {
         let tag = Int(bytes[0])
         guard tag >= 0x01, tag <= 0x04 else { return nil }
         let headLength = bytes.subdata(in: 1..<5).withUnsafeBytes {
-            Int($0.load(as: UInt32.self).bigEndian)
+            Int($0.loadUnaligned(as: UInt32.self).bigEndian)
         }
         guard headLength >= 0, headLength <= 64 * 1024,
               5 + headLength <= bytes.count else { return nil }

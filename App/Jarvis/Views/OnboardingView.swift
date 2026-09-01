@@ -106,12 +106,7 @@ struct OnboardingView: View {
 
     private func pair(host: String, port: Int, token: String, secret: String) {
         probing = true
-        model.prefs.host = host
-        model.prefs.port = port
-        model.prefs.token = token
-        model.prefs.secret = secret
-        model.prefs.paired = true
-        model.connect()
+        model.pair(host: host, port: port, token: token, secret: secret)
     }
 }
 

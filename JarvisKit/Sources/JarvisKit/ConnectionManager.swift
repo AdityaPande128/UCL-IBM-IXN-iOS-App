@@ -100,6 +100,10 @@ public final class ConnectionManager: NSObject {
     }
 
     private func closeLinkLocked() {
+        readySignal?.complete(false)
+        dropSignal?.complete("stopped")
+        for (_, waiter) in fileWaiters { waiter.complete(nil) }
+        fileWaiters.removeAll()
         socket?.cancel(with: .normalClosure, reason: nil)
         socket = nil
         via = ""
@@ -156,7 +160,8 @@ public final class ConnectionManager: NSObject {
             task.resume()
             receiveLoop(on: task)
         }
-        let live = await withTaskTimeout(seconds: 5) { await ready.wait() } ?? false
+        ready.completeAfter(seconds: 5, false)
+        let live = await ready.wait()
         if !live {
             queue.sync {
                 socket?.cancel(with: .normalClosure, reason: nil)
@@ -180,6 +185,12 @@ public final class ConnectionManager: NSObject {
                     }
                     self.receiveLoop(on: task)
                 case .failure(let error):
+                    if task.closeCode.rawValue == 4401,
+                       self.sealKey == nil || self.sawSealedReply {
+                        self.pairFailure = true
+                        self.wanted = false
+                        self.onState?(.pairRequired(reason: "The Mac refused this pairing."))
+                    }
                     self.readySignal?.complete(false)
                     self.dropSignal?.complete(error.localizedDescription)
                 }
@@ -316,27 +327,30 @@ public final class ConnectionManager: NSObject {
 
     private func fileRoundTrip(meta: [String: Any]) async -> Frames.Whole? {
         let waiter = Once<Frames.Whole?>()
-        let dispatched: Bool = queue.sync {
-            guard let key = sealKey, let task = socket, liveNow else { return false }
+        let reqId: String? = queue.sync {
+            guard let key = sealKey, let task = socket, liveNow else { return nil }
             requestCounter += 1
-            let reqId = "r\(requestCounter)"
+            let id = "r\(requestCounter)"
             var stamped = meta
-            stamped["reqId"] = reqId
+            stamped["reqId"] = id
             stamped["sid"] = Int(requestCounter)
-            fileWaiters[reqId] = waiter
+            fileWaiters[id] = waiter
             for frame in Frames.chunks(tag: Frames.tagFileReq, meta: stamped, body: Data()) {
                 guard let sealed = DirectCrypto.sealBinary(key: key, from: "phone",
                                                            data: frame)
                 else {
-                    fileWaiters.removeValue(forKey: reqId)
-                    return false
+                    fileWaiters.removeValue(forKey: id)
+                    return nil
                 }
                 task.send(.data(sealed)) { _ in }
             }
-            return true
+            return id
         }
-        guard dispatched else { return nil }
-        return await withTaskTimeout(seconds: 60) { await waiter.wait() } ?? nil
+        guard let reqId else { return nil }
+        waiter.completeAfter(seconds: 60, nil)
+        let whole = await waiter.wait()
+        queue.async { self.fileWaiters.removeValue(forKey: reqId) }
+        return whole
     }
 }
 
@@ -382,6 +396,14 @@ public final class Once<Value>: @unchecked Sendable {
         for waiter in resumed { waiter.resume(returning: result) }
     }
 
+    // A deadline that resolves this box if nothing else has: the waiter
+    // always resumes, so no task can park forever on an attempt that died.
+    public func completeAfter(seconds: Double, _ value: Value) {
+        DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { [weak self] in
+            self?.complete(value)
+        }
+    }
+
     public func wait() async -> Value {
         await withCheckedContinuation { continuation in
             lock.lock()
@@ -393,21 +415,5 @@ public final class Once<Value>: @unchecked Sendable {
             waiters.append(continuation)
             lock.unlock()
         }
-    }
-}
-
-// Await a value with a deadline; nil on timeout.
-public func withTaskTimeout<Value: Sendable>(
-    seconds: Double, _ operation: @escaping @Sendable () async -> Value
-) async -> Value? {
-    await withTaskGroup(of: Value?.self) { group in
-        group.addTask { await operation() }
-        group.addTask {
-            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            return nil
-        }
-        let first = await group.next() ?? nil
-        group.cancelAll()
-        return first
     }
 }

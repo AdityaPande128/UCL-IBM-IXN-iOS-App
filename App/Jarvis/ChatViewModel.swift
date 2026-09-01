@@ -53,6 +53,7 @@ final class ChatViewModel: ObservableObject {
     // Messages written while the link was down wait here and go out the
     // moment it returns; nothing typed ever just sits and dies.
     private var outbox: [[String: Any]] = []
+    private var pendingPair = false
     private var savedFiles: [String: URL] = [:]
 
     init() {
@@ -60,6 +61,10 @@ final class ChatViewModel: ObservableObject {
             Task { @MainActor in
                 self?.state = newState
                 if case .live = newState {
+                    if self?.pendingPair == true {
+                        self?.pendingPair = false
+                        self?.prefs.paired = true
+                    }
                     self?.afterConnect()
                 } else {
                     self?.busy = false
@@ -79,6 +84,19 @@ final class ChatViewModel: ObservableObject {
         guard prefs.paired else { return }
         conn.start(host: prefs.host, port: prefs.port,
                    token: prefs.token, secret: prefs.secret,
+                   remoteHost: prefs.remoteHost, remotePort: prefs.remotePort)
+    }
+
+    // Store the details and probe; the paired flag is written only when the
+    // ladder actually reaches the Mac, so a failed pairing never strands the
+    // user in an unreachable chat screen.
+    func pair(host: String, port: Int, token: String, secret: String) {
+        prefs.host = host
+        prefs.port = port
+        prefs.token = token
+        prefs.secret = secret
+        pendingPair = true
+        conn.start(host: host, port: port, token: token, secret: secret,
                    remoteHost: prefs.remoteHost, remotePort: prefs.remotePort)
     }
 
