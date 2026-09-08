@@ -54,6 +54,7 @@ struct ChatScreen: View {
     }
 
     private var title: String {
+        if model.privateChat { return "Private chat" }
         guard let active = model.activeConversation,
               let row = model.conversations.first(where: { $0.id == active })
         else { return "Jarvis" }
@@ -210,6 +211,12 @@ struct DrawerView: View {
                     dismiss()
                 } label: {
                     Label("New chat", systemImage: "plus")
+                }
+                Button {
+                    model.startPrivateChat()
+                    dismiss()
+                } label: {
+                    Label("Private chat", systemImage: "lock.shield")
                 }
                 Section("Chats") {
                     ForEach(model.conversations) { row in

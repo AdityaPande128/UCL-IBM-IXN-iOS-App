@@ -63,7 +63,12 @@ struct OnboardingView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Palette.accent)
-                    .disabled(host.isEmpty || token.isEmpty || probing)
+                    .disabled(host.isEmpty || token.isEmpty || probing || !secretShape)
+                    if !secretShape {
+                        Text("The direct secret is 64 hex characters; leave it blank to pair on Wi-Fi only.")
+                            .font(.footnote)
+                            .foregroundStyle(Palette.errorText)
+                    }
                 }
 
                 if case .unreachable = model.state {
@@ -88,6 +93,10 @@ struct OnboardingView: View {
                 applyScanned(payload)
             }
         }
+    }
+
+    private var secretShape: Bool {
+        secret.isEmpty || (secret.count == 64 && secret.allSatisfy { $0.isHexDigit })
     }
 
     private func applyScanned(_ payload: String) {

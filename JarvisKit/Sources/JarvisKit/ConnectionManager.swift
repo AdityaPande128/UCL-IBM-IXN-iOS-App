@@ -143,7 +143,15 @@ public final class ConnectionManager: NSObject {
         guard let url = URL(string: "ws://\(toHost):\(toPort)") else { return false }
         let ready = Once<Bool>()
         let drop = Once<String>()
-        let sealed = label == "remote"
+        let sealed = !secret.isEmpty
+        if sealed && !secretLooksReal() {
+            queue.sync {
+                pairFailure = true
+                wanted = false
+            }
+            onState?(.pairRequired(reason: "The direct secret must be 64 hex characters."))
+            return false
+        }
         let key = sealed ? (try? DirectCrypto.remoteKeyFor(secretHex: secret)) : nil
         if sealed && key == nil { return false }
         queue.sync {
@@ -300,10 +308,10 @@ public final class ConnectionManager: NSObject {
     // MARK: - File lane (download only in v1)
 
     public func downloadFile(id: String, name: String) async throws -> FetchedFile {
-        let (currentVia, currentHost, currentPort, currentToken) = queue.sync {
-            (via, host, port, token)
+        let (currentSealed, currentHost, currentPort, currentToken) = queue.sync {
+            (sealKey != nil, host, port, token)
         }
-        if currentVia == "remote" {
+        if currentSealed {
             let meta: [String: Any] = ["op": "get", "id": id]
             guard let whole = await fileRoundTrip(meta: meta) else {
                 throw JarvisNetError.noReply

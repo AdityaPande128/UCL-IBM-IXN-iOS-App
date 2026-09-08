@@ -30,7 +30,9 @@ struct JarvisApp: App {
                 // background and the ladder reconnects on return.
                 switch phase {
                 case .active: model.connect()
-                case .background: model.disconnect()
+                case .background:
+                    model.endPrivateChat()
+                    model.disconnect()
                 default: break
                 }
             }

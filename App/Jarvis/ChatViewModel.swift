@@ -41,6 +41,7 @@ final class ChatViewModel: ObservableObject {
     @Published var items: [ChatItem] = []
     @Published var conversations: [ConvRow] = []
     @Published var activeConversation: Int?
+    @Published var privateChat = false
     @Published var proposal: Proposal?
     @Published var busy = false
     @Published var busyLine = ""
@@ -119,7 +120,9 @@ final class ChatViewModel: ObservableObject {
             }
         }
         conn.send(msg("conversations_list"))
-        if let active = activeConversation {
+        if privateChat {
+            conn.send(msg("private_chat", ["on": true]))
+        } else if let active = activeConversation {
             conn.send(msg("conversation_select", ["id": active]))
         }
     }
@@ -294,13 +297,32 @@ final class ChatViewModel: ObservableObject {
     }
 
     func newChat() {
+        endPrivateChat()
         activeConversation = nil
         items = []
         conn.send(msg("conversation_select", ["id": nil]))
     }
 
     func selectConversation(_ id: Int) {
+        endPrivateChat()
         conn.send(msg("conversation_select", ["id": id]))
+    }
+
+    static let privateBanner = "Private mode: nothing you say here will be remembered."
+
+    func startPrivateChat() {
+        activeConversation = nil
+        proposal = nil
+        items = [ChatItem(role: "system", text: Self.privateBanner, files: [])]
+        privateChat = true
+        conn.send(msg("private_chat", ["on": true]))
+    }
+
+    func endPrivateChat() {
+        guard privateChat else { return }
+        privateChat = false
+        items = []
+        conn.send(msg("private_chat", ["on": false]))
     }
 
     func setSpeakReplies(_ on: Bool) {
