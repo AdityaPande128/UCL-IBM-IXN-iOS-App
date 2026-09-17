@@ -20,8 +20,8 @@ struct OnboardingView: View {
                 Text("Pair with Your Mac")
                     .font(.largeTitle.bold())
                     .padding(.top, 40)
-                Text("Open Jarvis on your Mac, bring up the pairing code "
-                     + "(Terminal: pair-phone), and scan it with this phone.")
+                Text("Open Jarvis on your Mac, choose Phone in Settings, then iOS: "
+                     + "a pairing code appears. Scan it with this phone.")
                     .foregroundStyle(.secondary)
                 Text("Please make sure both devices are on the same network.")
                     .font(.callout.bold())
